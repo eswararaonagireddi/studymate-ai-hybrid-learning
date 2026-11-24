@@ -1,0 +1,6 @@
+{
+  "name": "StudyMate AI",
+  "description": "Hybrid Learning Assistant powered by Firebase AI Logic, on-device Gemini Nano, and cloud Gemini fallback.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

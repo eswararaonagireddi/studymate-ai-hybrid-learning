@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "NoteRecord": {
+      "title": "NoteRecord",
+      "description": "Metadata and optional user-saved summary for a study note or PDF document.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "sourceType": { "type": "string", "enum": ["pdf", "text"] },
+        "pageCount": { "type": "integer" },
+        "charCount": { "type": "integer" },
+        "excerptPreview": { "type": "string", "maxLength": 1000 },
+        "summary": { "type": "string", "maxLength": 12000 },
+        "keyPoints": { "type": "array" },
+        "inferenceSource": { "type": "string", "enum": ["on_device", "in_cloud", "unavailable", "failed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "title", "subject", "sourceType", "pageCount", "charCount", "createdAt", "updatedAt"]
+    },
+    "StudySessionRecord": {
+      "title": "StudySessionRecord",
+      "description": "Recorded user study activity and actual AI inference mode used.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "feature": { "type": "string", "enum": ["assistant", "notes", "quiz", "flashcards"] },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "inferenceSource": { "type": "string", "enum": ["on_device", "in_cloud", "unavailable", "failed"] },
+        "fallbackOccurred": { "type": "boolean" },
+        "fallbackReason": { "type": "string", "maxLength": 300 },
+        "modelId": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "feature", "subject", "title", "inferenceSource", "fallbackOccurred", "createdAt"]
+    },
+    "QuizResultRecord": {
+      "title": "QuizResultRecord",
+      "description": "Completed quiz result scored deterministically by the client application.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "topic": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "difficulty": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] },
+        "totalQuestions": { "type": "integer" },
+        "correctCount": { "type": "integer" },
+        "scorePercent": { "type": "number" },
+        "inferenceSource": { "type": "string", "enum": ["on_device", "in_cloud", "unavailable", "failed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "topic", "subject", "difficulty", "totalQuestions", "correctCount", "scorePercent", "inferenceSource", "createdAt"]
+    },
+    "FlashcardSetRecord": {
+      "title": "FlashcardSetRecord",
+      "description": "User-saved deck of study flashcards generated from study notes.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "cardCount": { "type": "integer" },
+        "cards": { "type": "array" },
+        "inferenceSource": { "type": "string", "enum": ["on_device", "in_cloud", "unavailable", "failed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "title", "subject", "cardCount", "cards", "inferenceSource", "createdAt", "updatedAt"]
+    },
+    "UserPreferencesRecord": {
+      "title": "UserPreferencesRecord",
+      "description": "User-scoped inference, study style, and privacy consent preferences.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "preferredInferenceMode": { "type": "string", "enum": ["prefer_on_device", "only_on_device", "only_in_cloud", "prefer_in_cloud"] },
+        "preferredSubject": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "explanationStyle": { "type": "string", "enum": ["clear", "simple", "exam", "worked_example", "revision"] },
+        "theme": { "type": "string", "enum": ["light", "dark"] },
+        "cloudConsentGiven": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "preferredInferenceMode", "preferredSubject", "explanationStyle", "theme", "cloudConsentGiven", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/NoteRecord" },
+      "description": "Private saved study note metadata and optional summaries owned by {uid}."
+    },
+    "/users/{uid}/studySessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/StudySessionRecord" },
+      "description": "Private study session logs owned by {uid}."
+    },
+    "/users/{uid}/quizResults/{resultId}": {
+      "schema": { "$ref": "#/entities/QuizResultRecord" },
+      "description": "Private quiz results owned by {uid}."
+    },
+    "/users/{uid}/flashcardSets/{setId}": {
+      "schema": { "$ref": "#/entities/FlashcardSetRecord" },
+      "description": "Private saved flashcard decks owned by {uid}."
+    },
+    "/users/{uid}/preferences/{documentId}": {
+      "schema": { "$ref": "#/entities/UserPreferencesRecord" },
+      "description": "Private user preference document owned by {uid}."
+    }
+  }
+}

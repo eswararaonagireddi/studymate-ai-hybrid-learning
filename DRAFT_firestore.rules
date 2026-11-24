@@ -1,0 +1,271 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny everything not explicitly permitted.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedOwner(uid) {
+      return isSignedIn()
+        && request.auth.uid == uid
+        && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string
+        && id.size() >= 1
+        && id.size() <= 128
+        && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidInferenceSource(source) {
+      return source in ['on_device', 'in_cloud', 'unavailable', 'failed'];
+    }
+
+    function isValidNote(data) {
+      return data.keys().hasAll([
+          'ownerId', 'title', 'subject', 'sourceType', 'pageCount', 'charCount', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'title', 'subject', 'sourceType', 'pageCount', 'charCount',
+          'excerptPreview', 'summary', 'keyPoints', 'inferenceSource', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string
+        && data.ownerId == request.auth.uid
+        && data.ownerId.size() <= 128
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 160
+        && data.subject is string
+        && data.subject.size() >= 1
+        && data.subject.size() <= 80
+        && data.sourceType in ['pdf', 'text']
+        && data.pageCount is int
+        && data.pageCount >= 0
+        && data.pageCount <= 2000
+        && data.charCount is int
+        && data.charCount >= 0
+        && data.charCount <= 500000
+        && (!('excerptPreview' in data) || (data.excerptPreview is string && data.excerptPreview.size() <= 1000))
+        && (!('summary' in data) || (data.summary is string && data.summary.size() <= 12000))
+        && (!('keyPoints' in data) || (
+          data.keyPoints is list
+          && data.keyPoints.size() <= 30
+          && (data.keyPoints.size() == 0 || (data.keyPoints[0] is string && data.keyPoints[0].size() <= 400))
+        ))
+        && (!('inferenceSource' in data) || isValidInferenceSource(data.inferenceSource))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStudySession(data) {
+      return data.keys().hasAll([
+          'ownerId', 'feature', 'subject', 'title', 'inferenceSource', 'fallbackOccurred', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'feature', 'subject', 'title', 'inferenceSource',
+          'fallbackOccurred', 'fallbackReason', 'modelId', 'createdAt'
+        ])
+        && data.ownerId is string
+        && data.ownerId == request.auth.uid
+        && data.ownerId.size() <= 128
+        && data.feature in ['assistant', 'notes', 'quiz', 'flashcards']
+        && data.subject is string
+        && data.subject.size() >= 1
+        && data.subject.size() <= 80
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 160
+        && isValidInferenceSource(data.inferenceSource)
+        && data.fallbackOccurred is bool
+        && (!('fallbackReason' in data) || (data.fallbackReason is string && data.fallbackReason.size() <= 300))
+        && (!('modelId' in data) || (data.modelId is string && data.modelId.size() <= 120))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidQuizResult(data) {
+      return data.keys().hasAll([
+          'ownerId', 'topic', 'subject', 'difficulty', 'totalQuestions',
+          'correctCount', 'scorePercent', 'inferenceSource', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'topic', 'subject', 'difficulty', 'totalQuestions',
+          'correctCount', 'scorePercent', 'inferenceSource', 'createdAt'
+        ])
+        && data.ownerId is string
+        && data.ownerId == request.auth.uid
+        && data.ownerId.size() <= 128
+        && data.topic is string
+        && data.topic.size() >= 1
+        && data.topic.size() <= 160
+        && data.subject is string
+        && data.subject.size() >= 1
+        && data.subject.size() <= 80
+        && data.difficulty in ['beginner', 'intermediate', 'advanced']
+        && data.totalQuestions is int
+        && data.totalQuestions >= 1
+        && data.totalQuestions <= 30
+        && data.correctCount is int
+        && data.correctCount >= 0
+        && data.correctCount <= data.totalQuestions
+        && (data.scorePercent is int || data.scorePercent is float)
+        && data.scorePercent >= 0
+        && data.scorePercent <= 100
+        && isValidInferenceSource(data.inferenceSource)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidFlashcardSet(data) {
+      return data.keys().hasAll([
+          'ownerId', 'title', 'subject', 'cardCount', 'cards', 'inferenceSource', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'title', 'subject', 'cardCount', 'cards', 'inferenceSource', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string
+        && data.ownerId == request.auth.uid
+        && data.ownerId.size() <= 128
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 160
+        && data.subject is string
+        && data.subject.size() >= 1
+        && data.subject.size() <= 80
+        && data.cardCount is int
+        && data.cardCount >= 1
+        && data.cardCount <= 60
+        && data.cards is list
+        && data.cards.size() == data.cardCount
+        && data.cards.size() <= 60
+        && data.cards[0] is map
+        && isValidInferenceSource(data.inferenceSource)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPreferences(data) {
+      return data.keys().hasAll([
+          'ownerId', 'preferredInferenceMode', 'preferredSubject',
+          'explanationStyle', 'theme', 'cloudConsentGiven', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'preferredInferenceMode', 'preferredSubject',
+          'explanationStyle', 'theme', 'cloudConsentGiven', 'updatedAt'
+        ])
+        && data.ownerId is string
+        && data.ownerId == request.auth.uid
+        && data.ownerId.size() <= 128
+        && data.preferredInferenceMode in ['prefer_on_device', 'only_on_device', 'only_in_cloud', 'prefer_in_cloud']
+        && data.preferredSubject is string
+        && data.preferredSubject.size() >= 1
+        && data.preferredSubject.size() <= 80
+        && data.explanationStyle in ['clear', 'simple', 'exam', 'worked_example', 'revision']
+        && data.theme in ['light', 'dark']
+        && data.cloudConsentGiven is bool
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{uid}/notes/{noteId} {
+      allow get: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(noteId);
+      allow list: if isVerifiedOwner(uid) && isValidId(uid) && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedOwner(uid)
+        && isValidId(uid)
+        && isValidId(noteId)
+        && isValidNote(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedOwner(uid)
+        && isValidId(uid)
+        && isValidId(noteId)
+        && isValidNote(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'subject', 'excerptPreview', 'summary', 'keyPoints', 'inferenceSource', 'updatedAt'
+        ]);
+      allow delete: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(noteId);
+    }
+
+    match /users/{uid}/studySessions/{sessionId} {
+      allow get: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(sessionId);
+      allow list: if isVerifiedOwner(uid) && isValidId(uid) && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedOwner(uid)
+        && isValidId(uid)
+        && isValidId(sessionId)
+        && isValidStudySession(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(sessionId);
+    }
+
+    match /users/{uid}/quizResults/{resultId} {
+      allow get: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(resultId);
+      allow list: if isVerifiedOwner(uid) && isValidId(uid) && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedOwner(uid)
+        && isValidId(uid)
+        && isValidId(resultId)
+        && isValidQuizResult(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(resultId);
+    }
+
+    match /users/{uid}/flashcardSets/{setId} {
+      allow get: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(setId);
+      allow list: if isVerifiedOwner(uid) && isValidId(uid) && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedOwner(uid)
+        && isValidId(uid)
+        && isValidId(setId)
+        && isValidFlashcardSet(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedOwner(uid)
+        && isValidId(uid)
+        && isValidId(setId)
+        && isValidFlashcardSet(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'subject', 'cardCount', 'cards', 'inferenceSource', 'updatedAt'
+        ]);
+      allow delete: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(setId);
+    }
+
+    match /users/{uid}/preferences/{documentId} {
+      allow get: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(documentId);
+      allow list: if isVerifiedOwner(uid) && isValidId(uid) && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedOwner(uid)
+        && isValidId(uid)
+        && isValidId(documentId)
+        && isValidPreferences(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedOwner(uid)
+        && isValidId(uid)
+        && isValidId(documentId)
+        && isValidPreferences(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'preferredInferenceMode', 'preferredSubject', 'explanationStyle',
+          'theme', 'cloudConsentGiven', 'updatedAt'
+        ]);
+      allow delete: if isVerifiedOwner(uid) && isValidId(uid) && isValidId(documentId);
+    }
+  }
+}
